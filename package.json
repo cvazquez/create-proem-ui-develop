@@ -1,7 +1,10 @@
 {
   "name": "proem-ui-develop",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "main": "main.js",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "proem-ui-develop": "node tasks/cpuia",
     "create-proem-ui-app": "node tasks/cpuia",
