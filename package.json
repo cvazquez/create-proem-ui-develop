@@ -1,6 +1,6 @@
 {
   "name": "proem-ui-develop",
-  "version": "2.0.0",
+  "version": "1.0.1",
   "main": "main.js",
   "scripts": {
     "proem-ui-develop": "node tasks/cpuia",
@@ -24,7 +24,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rwblackburn/proem-ui.git"
+    "url": "git+https://github.com/cvazquez/proem-ui-develop.git"
   },
   "author": "Blackburn Labs <rob@blackburnlabs.com> (http://www.blackburnlabs.com)",
   "license": "UNLICENSED",
@@ -100,7 +100,7 @@
   },
   "description": "Proem UI Framework ===========",
   "bugs": {
-    "url": "https://github.com/rwblackburn/proem-ui/issues"
+    "url": "https://github.com/cvazquez/proem-ui-develop/issues"
   },
-  "homepage": "https://github.com/rwblackburn/proem-ui#readme"
+  "homepage": "https://github.com/cvazquez/proem-ui-develop#readme"
 }
