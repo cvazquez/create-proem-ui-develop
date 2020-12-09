@@ -1,3 +1,19 @@
+/*
+TODOs:
+    * Create template (from another repo?, files in this repo?)
+    * Add back checkIfOnline and isOnline
+    * Add back getPackageInfo?
+    * Add back checkForLatestVersion?
+    * Add back executeNodeScript?
+    * Add back setCaretRangeForRuntimeDeps?
+    * Add back makeCaretRange?
+    * Put packageJson in a file?
+    * Put list of dev and production pages in a repo? with the template?
+    * Test using yarn
+    * Add storybook
+    * Check create-react-app and other examples for steps missing
+*/
+
 'use strict';
 
 const chalk = require('chalk');
@@ -10,7 +26,81 @@ const fs = require('fs-extra');
 const os = require('os');
 const spawn = require('cross-spawn');
 const validateProjectName = require('validate-npm-package-name');
+const headerStars = '***************';
 
+const productionDependencies = [
+    'react',
+    'react-dom',
+    "@babel/polyfill",
+    "@material-ui/core",
+    "axios",
+    "classnames",
+    "copyfile",
+    "cross-env",
+    "fs",
+    "moment",
+    "notistack",
+    "prop-types",
+    "qs",
+    "react",
+    "react-dom",
+    "react-redux",
+    "react-router",
+    "react-router-dom",
+    "react-transition-group",
+    "redux",
+    "redux-logger",
+    "redux-promise-middleware",
+    "redux-thunk",
+    "showdown",
+    "webpack",
+    "webpack-cli",
+    "webpack-dev-server",
+    "webpack-merge"
+];
+
+const developmentDependencies = [
+    "@babel/cli",
+    "@babel/core",
+    "@babel/plugin-proposal-class-properties",
+    "@babel/plugin-proposal-export-default-from",
+    "@babel/plugin-transform-classes",
+    "@babel/plugin-transform-object-set-prototype-of-to-assign",
+    "@babel/preset-env",
+    "@babel/preset-react",
+    "@babel/runtime",
+    "babel-eslint",
+    "babel-loader",
+    "braces",
+    "css-loader",
+    "deep-equal",
+    "eslint",
+    "eslint-config-airbnb",
+    "eslint-plugin-import",
+    "eslint-plugin-jsx-a11y",
+    "eslint-plugin-react",
+    "file-loader",
+    "fs-plus",
+    "ftp-deploy",
+    "history",
+    "immutability-helper",
+    "jasmine",
+    "karma",
+    "karma-chrome-launcher",
+    "karma-jasmine",
+    "karma-junit-reporter",
+    "karma-sourcemap-loader",
+    "karma-webpack",
+    "puppeteer",
+    "renamer",
+    "replace-in-file",
+    "rimraf",
+    "style-loader",
+    "stylelint",
+    "stylelint-config-standard",
+    "url-loader",
+    "yargs"
+];
 
 let projectName;
 
@@ -22,8 +112,10 @@ function init() {
       .action(name => {
         projectName = name;
       })
+      .option('--dev', "installs dev dependencies")
       .option('--verbose', 'print additional logs')
       .option('--info', 'print environment debug info')
+      .option('--storybook', 'installs Storybook package') // TODO
       .on('--help', () => {
         console.log(
           `    Only ${chalk.green('<project-directory>')} is required.`
@@ -36,48 +128,26 @@ function init() {
         console.log(`      - a specific npm tag: ${chalk.green('@next')}`);
         console.log(
           `      - a custom fork published on npm: ${chalk.green(
-            'my-react-scripts'
+            'my-proem-ui-scripts'
           )}`
         );
         console.log(
           `      - a local path relative to the current working directory: ${chalk.green(
-            'file:../my-react-scripts'
+            'file:../my-proem-ui-scripts'
           )}`
         );
         console.log(
           `      - a .tgz archive: ${chalk.green(
-            'https://mysite.com/my-react-scripts-0.8.2.tgz'
+            'https://mysite.com/my-proem-ui-scripts-0.8.2.tgz'
           )}`
         );
         console.log(
           `      - a .tar.gz archive: ${chalk.green(
-            'https://mysite.com/my-react-scripts-0.8.2.tar.gz'
+            'https://mysite.com/my-proem-ui-scripts-0.8.2.tar.gz'
           )}`
         );
         console.log(
           `    It is not needed unless you specifically want to use a fork.`
-        );
-        console.log();
-        console.log(`    A custom ${chalk.cyan('--template')} can be one of:`);
-        console.log(
-          `      - a custom template published on npm: ${chalk.green(
-            'cra-template-typescript'
-          )}`
-        );
-        console.log(
-          `      - a local path relative to the current working directory: ${chalk.green(
-            'file:../my-custom-template'
-          )}`
-        );
-        console.log(
-          `      - a .tgz archive: ${chalk.green(
-            'https://mysite.com/my-custom-template-0.8.2.tgz'
-          )}`
-        );
-        console.log(
-          `      - a .tar.gz archive: ${chalk.green(
-            'https://mysite.com/my-custom-template-0.8.2.tar.gz'
-          )}`
         );
         console.log();
         console.log(
@@ -110,7 +180,7 @@ function init() {
                 'Firefox',
                 'Safari',
               ],
-              npmPackages: ['react', 'react-dom', 'react-scripts'],
+              npmPackages: ['react', 'react-dom'],
               npmGlobalPackages: ['create-proem-ui-develop'],
             },
             {
@@ -144,41 +214,59 @@ function init() {
         program.scriptsVersion,
         program.template,
         program.useNpm,
-        program.usePnp
+        program.usePnp,
+        program.dev
     );
 }
 
-function createApp(name, verbose, version, template, useNpm, usePnp) {
-    const unsupportedNodeVersion = !semver.satisfies(process.version, '>=10');
-    if (unsupportedNodeVersion) {
-      console.log(
-        chalk.yellow(
-          `You are using Node ${process.version} so the project will be bootstrapped with an old unsupported version of tools.\n\n` +
-            `Please update to Node 10 or higher for a better, fully supported experience.\n`
-        )
-      );
-      // Fall back to latest supported react-scripts on Node 4
-      version = 'react-scripts@0.9.x';
-    }
-
+function createApp(name, verbose, version, template, useNpm, usePnp, dev) {
     const root = path.resolve(name);
     const appName = path.basename(root);
 
     checkAppName(appName);
+
     fs.ensureDirSync(name);
     if (!isSafeToCreateProjectIn(root, name)) {
       process.exit(1);
     }
+
+    console.log();
+    console.log(`Creating a new Proem UI App in ${chalk.green(root)}.`);
     console.log();
 
-    console.log(`Creating a new React app in ${chalk.green(root)}.`);
-    console.log();
-
+    // Setup body of package.json
     const packageJson = {
-      name: appName,
-      version: '0.1.0',
-      private: true,
+        name: appName,
+        version: '2.0.0',
+        main: "main.js",
+        scripts: {
+            lint: "cross-env eslint . --ext .js --ext .jsx  --ignore-path .gitignore --cache",
+            test: "karma start --single-run=true --watch=false karma.conf.js",
+            "test:watch": "karma start --single-run=false --watch=true --browsers Chrome karma.conf.js",
+            "bundle:prod": "cross-env webpack --progress --config webpack.prod.js",
+            "bundle:stage": "cross-env webpack --progress --config webpack.stage.js",
+            "bundle:dev": "cross-env webpack --progress --config webpack.dev.js",
+            "bundle:local": "cross-env webpack --progress --config webpack.local.js",
+            "bundle:watch": "cross-env webpack --progress --config webpack.local.js --watch",
+            bundle: "npm run bundle:prod",
+            clean: "rimraf dist/*",
+            start: "webpack-dev-server --inline --hot --config webpack.local.js",
+            build: "npm run clean && npm run bundle && npm run package",
+            predeploy: "rimraf dist/web/prod/public && rimraf dist/web/prod/cloud",
+            deploy: "npm run bundle:prod && cross-env copyfiles cloud/* cloud/models/* dist/web/prod && cross-env copyfiles img/* fonts/* css/* models/* landing/* renderer-bundle.js manifest.json index.html dist/web/prod/public",
+            "predeploy:edge": "rimraf dist/web/edge/public && rimraf dist/web/edge/cloud",
+            "deploy:edge": "npm run bundle:dev && cross-env copyfiles cloud/* cloud/models/* dist/web/edge && cross-env copyfiles img/* fonts/* css/* models/* landing/* renderer-bundle.js manifest.json  index.html dist/web/edge/public"
+      },
+        repository: "https://github.com/rwblackburn/proem-ui.git",
+        author: {
+            name: "Blackburn Labs",
+            email: "rob@blackburnlabs.com",
+            url: "http://www.blackburnlabs.com"
+        },
+        license: "none"
     };
+
+    // Write body of package.json to root of new project
     fs.writeFileSync(
       path.join(root, 'package.json'),
       JSON.stringify(packageJson, null, 2) + os.EOL
@@ -186,10 +274,18 @@ function createApp(name, verbose, version, template, useNpm, usePnp) {
 
     const useYarn = useNpm ? false : shouldUseYarn();
     const originalDirectory = process.cwd();
+
+    console.log("originalDirectory : ", originalDirectory)
+
+    // Change to the root directory of the new project
     process.chdir(root);
+
     if (!useYarn && !checkThatNpmCanReadCwd()) {
       process.exit(1);
     }
+
+    console.log("useYarn : ", useYarn)
+    console.log("usePnp : ", usePnp)
 
     if (!useYarn) {
       const npmInfo = checkNpmVersion();
@@ -202,8 +298,6 @@ function createApp(name, verbose, version, template, useNpm, usePnp) {
             )
           );
         }
-        // Fall back to latest supported react-scripts for npm 3
-        version = 'react-scripts@0.9.x';
       }
     } else if (usePnp) {
       const yarnInfo = checkYarnVersion();
@@ -255,7 +349,8 @@ function createApp(name, verbose, version, template, useNpm, usePnp) {
         originalDirectory,
         template,
         useYarn,
-        usePnp
+        usePnp,
+        dev
     );
 }
 
@@ -267,8 +362,6 @@ function shouldUseYarn() {
       return false;
     }
   }
-
-
 
 function checkAppName(appName) {
     const validationResult = validateProjectName(appName);
@@ -290,8 +383,7 @@ function checkAppName(appName) {
       process.exit(1);
     }
 
-    // TODO: there should be a single place that holds the dependencies
-    const dependencies = ['react', 'react-dom', 'react-scripts'].sort();
+    const dependencies = productionDependencies.concat(developmentDependencies).sort();
     if (dependencies.includes(appName)) {
       console.error(
         chalk.red(
@@ -307,7 +399,7 @@ function checkAppName(appName) {
     }
   }
 
-function install(root, useYarn, usePnp, dependencies, verbose, isOnline) {
+function install(root, useYarn, usePnp, dependencies, verbose, isOnline, dev) {
     return new Promise((resolve, reject) => {
       let command;
       let args;
@@ -320,7 +412,7 @@ function install(root, useYarn, usePnp, dependencies, verbose, isOnline) {
         if (usePnp) {
           args.push('--enable-pnp');
         }
-        [].push.apply(args, dependencies);
+        [].push.apply(args, prodDependencies);
 
         // Explicitly set cwd() to work around issues like
         // https://github.com/facebook/create-react-app/issues/3326.
@@ -339,11 +431,16 @@ function install(root, useYarn, usePnp, dependencies, verbose, isOnline) {
         command = 'npm';
         args = [
           'install',
-          '--save',
           '--save-exact',
-          '--loglevel',
-          'error',
-        ].concat(dependencies);
+          '--loglevel'
+        ];
+
+        args.push('error');
+        args.push.apply(args, dependencies);
+
+        if(dev) {
+            args.push("--save-dev");
+        }
 
         if (usePnp) {
           console.log(chalk.yellow("NPM doesn't support PnP."));
@@ -364,9 +461,12 @@ function install(root, useYarn, usePnp, dependencies, verbose, isOnline) {
           });
           return;
         }
-        resolve();
+        resolve({
+            success : true
+        });
       });
-    });
+
+    }).catch();
   }
 
   function run(
@@ -377,108 +477,79 @@ function install(root, useYarn, usePnp, dependencies, verbose, isOnline) {
     originalDirectory,
     template,
     useYarn,
-    usePnp
+    usePnp,
+    dev
   ) {
-    Promise.all([
-      getInstallPackage(version, originalDirectory),
-      getTemplateInstallPackage(template, originalDirectory),
-    ]).then(([packageToInstall, templateToInstall]) => {
-      const allDependencies = ['react', 'react-dom', packageToInstall];
+    const isOnline = true;
 
-      console.log('Installing packages. This might take a couple of minutes.');
+    return new Promise((resolve) => {
+        const dependencies = productionDependencies;
 
-      Promise.all([
-        getPackageInfo(packageToInstall),
-        getPackageInfo(templateToInstall),
-      ])
-        .then(([packageInfo, templateInfo]) =>
-          checkIfOnline(useYarn).then(isOnline => ({
-            isOnline,
-            packageInfo,
-            templateInfo,
-          }))
-        )
-        .then(({ isOnline, packageInfo, templateInfo }) => {
-          let packageVersion = semver.coerce(packageInfo.version);
+        console.log();
+        console.log(`${headerStars} Installing Production packages. This might take a couple of minutes. ${headerStars}`);
+        console.log();
 
-          const templatesVersionMinimum = '3.3.0';
-
-          // Assume compatibility if we can't test the version.
-          if (!semver.valid(packageVersion)) {
-            packageVersion = templatesVersionMinimum;
-          }
-
-          // Only support templates when used alongside new react-scripts versions.
-          const supportsTemplates = semver.gte(
-            packageVersion,
-            templatesVersionMinimum
-          );
-          if (supportsTemplates) {
-            allDependencies.push(templateToInstall);
-          } else if (template) {
-            console.log('');
-            console.log(
-              `The ${chalk.cyan(packageInfo.name)} version you're using ${
-                packageInfo.name === 'react-scripts' ? 'is not' : 'may not be'
-              } compatible with the ${chalk.cyan('--template')} option.`
-            );
-            console.log('');
-          }
-
-          console.log(
-            `Installing ${chalk.cyan('react')}, ${chalk.cyan(
-              'react-dom'
-            )}, and ${chalk.cyan(packageInfo.name)}${
-              supportsTemplates ? ` with ${chalk.cyan(templateInfo.name)}` : ''
-            }...`
-          );
-          console.log();
-
-          return install(
+        // Install production dependencies
+        const prodInstall = install(
             root,
             useYarn,
             usePnp,
-            allDependencies,
+            dependencies,
             verbose,
-            isOnline
-          ).then(() => ({
-            packageInfo,
-            supportsTemplates,
-            templateInfo,
-          }));
-        })
-        .then(async ({ packageInfo, supportsTemplates, templateInfo }) => {
-          const packageName = packageInfo.name;
-          const templateName = supportsTemplates ? templateInfo.name : undefined;
-          checkNodeVersion(packageName);
-          setCaretRangeForRuntimeDeps(packageName);
+            isOnline,
+            false
+        );
 
-          const pnpPath = path.resolve(process.cwd(), '.pnp.js');
+        resolve(prodInstall);
+    }).then((prodInstall) => {
+        if(!prodInstall.success) {
+            console.log("****** Production install failed aborting *****");
 
-          const nodeArgs = fs.existsSync(pnpPath) ? ['--require', pnpPath] : [];
+            if(prodInstall.command) {
+                console.log(prodInstall.command);
 
-          await executeNodeScript(
-            {
-              cwd: process.cwd(),
-              args: nodeArgs,
-            },
-            [root, appName, verbose, originalDirectory, templateName],
-            `
-          var init = require('${packageName}/scripts/init.js');
-          init.apply(null, JSON.parse(process.argv[1]));
-        `
-          );
+                throw new Error("Production install Failed running : ", prodInstall.command);
+            }
 
-          if (version === 'react-scripts@0.9.x') {
-            console.log(
-              chalk.yellow(
-                `\nNote: the project was bootstrapped with an old unsupported version of tools.\n` +
-                  `Please update to Node >=10 and npm >=6 to get supported tools in new projects.\n`
-              )
-            );
-          }
-        })
-        .catch(reason => {
+            throw new Error("Production Install Failed!");
+        }
+
+            if(dev && prodInstall.success) {
+                console.log();
+                console.log(`${headerStars} Installing Development packages. This might take a couple of minutes. ${headerStars}`);
+                console.log();
+
+                // Installing Dev dependencies
+                const dependencies = developmentDependencies;
+
+                return new Promise((resolve) => {
+                const devInstall = install(
+                    root,
+                    useYarn,
+                    usePnp,
+                    dependencies,
+                    verbose,
+                    isOnline,
+                    dev
+                  );
+
+                  resolve(devInstall);
+                });
+            }
+        }).then((devInstall) => {
+
+            if(devInstall && !devInstall.success) {
+                console.log("****** Development install failed aborting *****");
+
+                if(devInstall.command) {
+                    console.log(devInstall.command);
+
+                    throw new Error("Development install Failed running : ", devInstall.command);
+                }
+
+                throw new Error("Development Install Failed!");
+            }
+        }).catch(reason => {
           console.log();
           console.log('Aborting installation.');
           if (reason.command) {
@@ -496,6 +567,7 @@ function install(root, useYarn, usePnp, dependencies, verbose, isOnline) {
             'package.json',
             'yarn.lock',
             'node_modules',
+            'package-lock.json',
           ];
           const currentFiles = fs.readdirSync(path.join(root));
           currentFiles.forEach(file => {
@@ -517,65 +589,19 @@ function install(root, useYarn, usePnp, dependencies, verbose, isOnline) {
             );
             process.chdir(path.resolve(root, '..'));
             fs.removeSync(path.join(root));
+          } else {
+              console.log("The following files are remaining and need to be deleted manually", remainingFiles);
           }
           console.log('Done.');
           process.exit(1);
         });
-    });
-  }
-
-  function getInstallPackage(version, originalDirectory) {
-    let packageToInstall = 'react-scripts';
-    const validSemver = semver.valid(version);
-    if (validSemver) {
-      packageToInstall += `@${validSemver}`;
-    } else if (version) {
-      if (version[0] === '@' && !version.includes('/')) {
-        packageToInstall += version;
-      } else if (version.match(/^file:/)) {
-        packageToInstall = `file:${path.resolve(
-          originalDirectory,
-          version.match(/^file:(.*)?$/)[1]
-        )}`;
-      } else {
-        // for tar.gz or alternative paths
-        packageToInstall = version;
-      }
-    }
-
-    const scriptsToWarn = [
-      {
-        name: 'react-scripts-ts',
-        message: chalk.yellow(
-          `The react-scripts-ts package is deprecated. TypeScript is now supported natively in Create React App. You can use the ${chalk.green(
-            '--template typescript'
-          )} option instead when generating your app to include TypeScript support. Would you like to continue using react-scripts-ts?`
-        ),
-      },
-    ];
-
-    for (const script of scriptsToWarn) {
-      if (packageToInstall.startsWith(script.name)) {
-        return prompts({
-          type: 'confirm',
-          name: 'useScript',
-          message: script.message,
-          initial: false,
-        }).then(answer => {
-          if (!answer.useScript) {
-            process.exit(0);
-          }
-
-          return packageToInstall;
-        });
-      }
-    }
-
-    return Promise.resolve(packageToInstall);
   }
 
   function getTemplateInstallPackage(template, originalDirectory) {
-    let templateToInstall = 'cra-template';
+    let templateToInstall = 'cpuia-template';
+
+    console.log("template in getTemplateInstallPackage() : ", template);
+
     if (template) {
       if (template.match(/^file:/)) {
         templateToInstall = `file:${path.resolve(
@@ -659,67 +685,6 @@ function install(root, useYarn, usePnp, dependencies, verbose, isOnline) {
     });
   }
 
-  // Extract package name from tarball url or path.
-  function getPackageInfo(installPackage) {
-    if (installPackage.match(/^.+\.(tgz|tar\.gz)$/)) {
-      return getTemporaryDirectory()
-        .then(obj => {
-          let stream;
-          if (/^http/.test(installPackage)) {
-            stream = hyperquest(installPackage);
-          } else {
-            stream = fs.createReadStream(installPackage);
-          }
-          return extractStream(stream, obj.tmpdir).then(() => obj);
-        })
-        .then(obj => {
-          const { name, version } = require(path.join(
-            obj.tmpdir,
-            'package.json'
-          ));
-          obj.cleanup();
-          return { name, version };
-        })
-        .catch(err => {
-          // The package name could be with or without semver version, e.g. react-scripts-0.2.0-alpha.1.tgz
-          // However, this function returns package name only without semver version.
-          console.log(
-            `Could not extract the package name from the archive: ${err.message}`
-          );
-          const assumedProjectName = installPackage.match(
-            /^.+\/(.+?)(?:-\d+.+)?\.(tgz|tar\.gz)$/
-          )[1];
-          console.log(
-            `Based on the filename, assuming it is "${chalk.cyan(
-              assumedProjectName
-            )}"`
-          );
-          return Promise.resolve({ name: assumedProjectName });
-        });
-    } else if (installPackage.startsWith('git+')) {
-      // Pull package name out of git urls e.g:
-      // git+https://github.com/mycompany/react-scripts.git
-      // git+ssh://github.com/mycompany/react-scripts.git#v1.2.3
-      return Promise.resolve({
-        name: installPackage.match(/([^/]+)\.git(#.*)?$/)[1],
-      });
-    } else if (installPackage.match(/.+@/)) {
-      // Do not match @scope/ when stripping off @version or @tag
-      return Promise.resolve({
-        name: installPackage.charAt(0) + installPackage.substr(1).split('@')[0],
-        version: installPackage.split('@')[1],
-      });
-    } else if (installPackage.match(/^file:/)) {
-      const installPackagePath = installPackage.match(/^file:(.*)?$/)[1];
-      const { name, version } = require(path.join(
-        installPackagePath,
-        'package.json'
-      ));
-      return Promise.resolve({ name, version });
-    }
-    return Promise.resolve({ name: installPackage });
-  }
-
   function checkNpmVersion() {
     let hasMinNpm = false;
     let npmVersion = null;
@@ -796,49 +761,6 @@ function install(root, useYarn, usePnp, dependencies, verbose, isOnline) {
       );
       process.exit(1);
     }
-  }
-
-  function makeCaretRange(dependencies, name) {
-    const version = dependencies[name];
-
-    if (typeof version === 'undefined') {
-      console.error(chalk.red(`Missing ${name} dependency in package.json`));
-      process.exit(1);
-    }
-
-    let patchedVersion = `^${version}`;
-
-    if (!semver.validRange(patchedVersion)) {
-      console.error(
-        `Unable to patch ${name} dependency version because version ${chalk.red(
-          version
-        )} will become invalid ${chalk.red(patchedVersion)}`
-      );
-      patchedVersion = version;
-    }
-
-    dependencies[name] = patchedVersion;
-  }
-
-  function setCaretRangeForRuntimeDeps(packageName) {
-    const packagePath = path.join(process.cwd(), 'package.json');
-    const packageJson = require(packagePath);
-
-    if (typeof packageJson.dependencies === 'undefined') {
-      console.error(chalk.red('Missing dependencies in package.json'));
-      process.exit(1);
-    }
-
-    const packageVersion = packageJson.dependencies[packageName];
-    if (typeof packageVersion === 'undefined') {
-      console.error(chalk.red(`Unable to find ${packageName} in package.json`));
-      process.exit(1);
-    }
-
-    makeCaretRange(packageJson.dependencies, 'react');
-    makeCaretRange(packageJson.dependencies, 'react-dom');
-
-    fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + os.EOL);
   }
 
   // If project only contains files generated by GH, it’s safe.
@@ -1014,49 +936,6 @@ function install(root, useYarn, usePnp, dependencies, verbose, isOnline) {
           resolve(err == null);
         }
       });
-    });
-  }
-
-  function executeNodeScript({ cwd, args }, data, source) {
-    return new Promise((resolve, reject) => {
-      const child = spawn(
-        process.execPath,
-        [...args, '-e', source, '--', JSON.stringify(data)],
-        { cwd, stdio: 'inherit' }
-      );
-
-      child.on('close', code => {
-        if (code !== 0) {
-          reject({
-            command: `node ${args.join(' ')}`,
-          });
-          return;
-        }
-        resolve();
-      });
-    });
-  }
-
-  function checkForLatestVersion() {
-    return new Promise((resolve, reject) => {
-      https
-        .get(
-          'https://registry.npmjs.org/-/package/create-proem-ui-develop/dist-tags',
-          res => {
-            if (res.statusCode === 200) {
-              let body = '';
-              res.on('data', data => (body += data));
-              res.on('end', () => {
-                resolve(JSON.parse(body).latest);
-              });
-            } else {
-              reject();
-            }
-          }
-        )
-        .on('error', () => {
-          reject();
-        });
     });
   }
 
