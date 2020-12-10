@@ -25,3 +25,6 @@ renderer-bundle.js.map
 
 # OS
 .DS_Store
+
+# Packages
+packages/create-proem-ui-develop/node_modules

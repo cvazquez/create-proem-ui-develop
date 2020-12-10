@@ -1,6 +1,6 @@
 {
   "name": "create-proem-ui-develop",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "keywords": [
     "react"
   ],
@@ -18,7 +18,8 @@
     "url": "https://github.com/cvazquez/proem-ui-develop/issues"
   },
   "files": [
-    "index.js"
+    "index.js",
+    "createProemUIApp.js"
   ],
   "bin": {
     "create-proem-ui-develop": "./index.js"
